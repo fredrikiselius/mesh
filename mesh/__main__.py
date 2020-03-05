@@ -4,11 +4,13 @@ import argparse
 import logging
 import sys
 
+import plexapi
+
 from mesh.configuration import get_config
 from mesh.interactive import first_run_setup
 
 
-def setup_args():
+def init_args():
     """Initialize the CLI argument parser"""
 
     parser = argparse.ArgumentParser(
@@ -21,17 +23,21 @@ def setup_args():
     return parser.parse_args()
 
 
-def setup_logging(level):
+def init_logging(level):
     """Initialize logging"""
 
     logging.basicConfig(level=logging.getLevelName(level.upper()))
 
 
-def run():
+def init_plex():
+    config = get_config()
+
+
+def main():
     """Run the application"""
 
-    args = setup_args()
-    setup_logging(args.log_level)
+    args = init_args()
+    init_logging(args.log_level)
 
     config = get_config()
     if config.is_new:
@@ -43,4 +49,9 @@ def run():
         config.plex_serverownertoken = token
         config.save()
 
-run()
+    print(config.asd)
+
+
+
+if __name__ == '__main__':
+    main()

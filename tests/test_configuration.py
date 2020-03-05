@@ -3,18 +3,13 @@ import os
 
 import pytest
 
-from mesh.configuration import Configuration
+from mesh.configuration import Configuration, _REQUIRED_ATTRIBUTES
 from mesh.exceptions import InvalidConfiguration
 
 
 @pytest.fixture
 def required_attrs():
-    return (
-            'serveridentifier',
-            'serverownertoken',
-            'clientid',
-            'clientsecret',
-    )
+    return _REQUIRED_ATTRIBUTES
 
 
 @pytest.fixture
