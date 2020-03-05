@@ -1,9 +1,9 @@
+from collections import namedtuple
 import configparser
 import logging
 import os
 import uuid
 
-import plexapi
 
 from mesh.exceptions import InvalidConfiguration
 
@@ -12,15 +12,6 @@ logger = logging.getLogger(__name__)
 ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT_PATH, 'config')
 
-#: Required configuration keys (**must** exist in the external config file).
-_REQUIRED_ATTRIBUTES = (
-        'mesh_identifier',
-        'trakt_clientid',
-        'trakt_clientsecret',
-        'plex_serveridentifier',
-        'plex_serverownertoken',
-)
-
 
 class Configuration:
     """Application configuration data class
@@ -28,8 +19,13 @@ class Configuration:
     Reads the application configuration from the file given by *path*.
     If *path* doesn't point to an existing file a new one is generated.
     Otherwise, the existing one is loaded.
-    Each configuration option given by the file is added as a instance
-    attribute on the form *section_option*.
+    Each configuration section is available as an instance attribute
+    which returns a :class:`~python:namedtuple` containing the options.
+
+    :example:
+    >>> config = Configuration(path_to_config)
+    >>> config.plex.identifier
+    >>> # Plex server identifier
 
     .. warning:: This data class should be considered as read-only and
                  never be instantiated explicitly.
@@ -55,41 +51,26 @@ class Configuration:
         else:
             self._load()
 
+    def __getattribute__(self, attr):
+        parser = object.__getattribute__(self, '_config_parser')
+        if parser.has_section(attr):
+            ops, vals = zip(*parser.items(attr))
+            return namedtuple(attr, ops)(*vals)
+        return object.__getattribute__(self, attr)
+
     def _generate(self):
         """Generates a new configuration file"""
-        for attr in _REQUIRED_ATTRIBUTES:
-            section, key = attr.split('_')
-            if not self._config_parser.has_section(section):
-                self._config_parser.add_section(section)
-            if section == 'mesh' and key == 'identifier':
-                self._config_parser.set(section, key, str(uuid.uuid4()))
-            else:
-                self._config_parser.set(section, key, '')
-
+        self._config_parser.read_dict(_TEMPLATE)
         self.save()
         self.is_new = True
-
-    def __setattr__(self, key, value):
-        """Updates the config_parser if key is an config attr"""
-        if key in _REQUIRED_ATTRIBUTES:
-            self._config_parser.set(*key.split('_'), value)
-        super(Configuration, self).__setattr__(key, value)
-
-    def __getattr__(self, item):
-        print(item in _REQUIRED_ATTRIBUTES)
-        if item in _REQUIRED_ATTRIBUTES:
-            return self._config_parser.get(*item.split('_'))
-        return getattr(self, item)
 
     def _load(self):
         """Loads the configuration file
 
-        Adds all configuration keys as instance attributes with their
-        corresponding values.
-
         :raises: :class:`mesh.exceptions.InvalidConfiguration`
                  if duplicate configuration keys are encountered
                  or if the configurations is missing a required key.
+                 Will also be raised if validation fails.
         """
 
         try:
@@ -98,27 +79,71 @@ class Configuration:
             logger.exception(f'Failed to parse "{self._path}"', exc_info=e)
             raise InvalidConfiguration('Unable to parse file') from e
 
-        # attrs = []
-        # for section in self._config_parser.sections():
-        #     for key in self._config_parser[section]:
-        #         if hasattr(self, key):
-        #             logger.error(f'"{key}" is already an attribute of '
-        #                          f'Configuration')
-        #             raise InvalidConfiguration(f'Invalid key "{key}"')
-        #
-        #         attr = f'{section}_{key}'
-        #         logger.debug(f'Setting attribute "{attr}" to '
-        #                      f'"{self._config_parser[section][key]}"')
-        #
-        #         setattr(self, attr, self._config_parser[section][key])
-        #         attrs.append(attr)
-        #
-        # if not all([r_attr in attrs for r_attr in _REQUIRED_ATTRIBUTES]):
-        #     raise InvalidConfiguration('Missing required configuration key')
+        status = self._validate()
+        if not status.success:
+            raise InvalidConfiguration(status.msg)
+
+    def _validate(self):
+        """Validates the current configuration"""
+        parser = configparser.ConfigParser()
+        parser.read_dict(_TEMPLATE)
+
+        status = namedtuple('Validation', ['success', 'msg'])
+
+        # Check is required since namedtuple is used in __getattribute__
+        # (namedtuple does not allow attributes starting with _)
+        for s in self._config_parser.sections():
+            if any([o.startswith('_') for o in self._config_parser.options(s)]):
+                return status(False, f'Options starting with _ are not allowed')
+
+        # Assert that no internal attribute/method is overshadowed
+        if any([s in self.__dir__() for s in self._config_parser.sections()]):
+            return status(False, f'Forbidden section name')
+
+        # Check that all required sections and options are available
+        for s in parser.sections():
+            if not self._config_parser.has_section(s):
+                return status(False, f'Missing section "[{s}]"')
+            for o in parser.options(s):
+                if not self._config_parser.has_option(s, o):
+                    return status(False, f'Missing option "[{s}] {o}"')
+        return status(True, '')
+
+    def set(self, section, option, value):
+        """Sets the option in section to value
+
+        :param section: Section name
+        :param option: Option name
+        :param value: Option value
+        :type section: :class:`~python:str`
+        :type option: :class:`~python:str`
+        :type value: :class:`~python:str`
+        :raises: :class:`~python:ValueError` if the option name starts with _
+                 or if the section does not exist
+        """
+
+        if option.startswith('_'):
+            raise ValueError('Options starting with "_" are not allowed')
+
+        try:
+            self._config_parser.set(section, option, value)
+        except configparser.NoSectionError as e:
+            logger.exception(e)
+            raise ValueError(f'"section" must be an existing section') from e
 
     def save(self):
+        """Saves the configuration to file"""
         with open(self._path, 'w') as f:
             self._config_parser.write(f)
+
+
+_TEMPLATE = {
+    'mesh': {'identifier': str(uuid.uuid4())},
+    'plex': {'identifier': '',
+             'token': ''},
+    'trakt': {'id': '',
+              'secret': ''}
+}
 
 
 def get_config(path=None):

@@ -45,12 +45,9 @@ def main():
               'fields and rerun the application')
         # sys.exit()
         identifier, token = first_run_setup()
-        config.plex_serveridentifier = identifier
-        config.plex_serverownertoken = token
+        config.set('plex', 'identifier',  identifier)
+        config.set('plex', 'token',  token)
         config.save()
-
-    print(config.asd)
-
 
 
 if __name__ == '__main__':
