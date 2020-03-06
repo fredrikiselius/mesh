@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 
@@ -37,9 +37,9 @@ def json_user_with_args():
         'trakt': {
             'trakt': 'auth'
         },
-        'last_pull': datetime.min,
-        'last_push': datetime.min,
-        'last_sync': datetime.min,
+        'last_pull': datetime.min.replace(tzinfo=timezone.utc),
+        'last_push': datetime.min.replace(tzinfo=timezone.utc),
+        'last_sync': datetime.min.replace(tzinfo=timezone.utc),
         'url': ''
     }
 
@@ -78,9 +78,9 @@ def test_user_with_required_args(user):
     assert user.name == 'mesh'
     assert user.token == 'token'
     assert user.trakt == {'trakt': 'auth'}
-    assert user.last_pull == datetime.min
-    assert user.last_push == datetime.min
-    assert user.last_sync == datetime.min
+    assert user.last_pull == datetime.min.replace(tzinfo=timezone.utc)
+    assert user.last_push == datetime.min.replace(tzinfo=timezone.utc)
+    assert user.last_sync == datetime.min.replace(tzinfo=timezone.utc)
     assert user.url == ''
 
 
@@ -115,3 +115,11 @@ def test_usermanager_add_duplicate_user(non_existing_file, user):
     um.add(user)
     with pytest.raises(ValueError):
         um.add(user)
+
+def test_usermanager_save(non_existing_file, user):
+    um = UserManager(non_existing_file)
+    um.add(user)
+    um.save()
+
+    um_load = UserManager(non_existing_file)
+    assert um == um_load

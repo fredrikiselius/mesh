@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field, asdict, is_dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from pathlib import Path
+
+from mesh.helpers import datetime_to_ISO8601_str, datetime_from_ISO8601_str
 
 
 @dataclass
@@ -22,20 +24,28 @@ class User:
     token: str
     trakt: dict = field(repr=False)
 
-    last_pull: datetime = field(default_factory=lambda: datetime.min)
-    last_push: datetime = field(default_factory=lambda: datetime.min)
-    last_sync: datetime = field(default_factory=lambda: datetime.min)
+    last_pull: datetime = field(
+        default_factory=lambda: datetime.min.replace(tzinfo=timezone.utc)
+    )
+
+    last_push: datetime = field(
+        default_factory=lambda: datetime.min.replace(tzinfo=timezone.utc)
+    )
+
+    last_sync: datetime = field(
+        default_factory=lambda: datetime.min.replace(tzinfo=timezone.utc)
+    )
     url: str = ''
 
     def __post_init__(self):
         if isinstance(self.last_pull, str):
-            self.last_pull = datetime.fromisoformat(self.last_pull)
+            self.last_pull = datetime_from_ISO8601_str(self.last_pull)
 
         if isinstance(self.last_push, str):
-            self.last_push = datetime.fromisoformat(self.last_push)
+            self.last_push = datetime_from_ISO8601_str(self.last_push)
 
         if isinstance(self.last_sync, str):
-            self.last_sync = datetime.fromisoformat(self.last_sync)
+            self.last_sync = datetime_from_ISO8601_str(self.last_sync)
 
     @classmethod
     def from_json(cls, data):
@@ -82,14 +92,14 @@ class UserManager:
     def save(self):
         """Saves the UserManager as json"""
         with self.file.open(mode='w') as f:
-            json.dump(self, f, cls=UserEncoder)
+            json.dump(self, f, cls=UserEncoder, indent=2)
 
 
 class UserEncoder(json.JSONEncoder):
     """Json encoder for dataclasses and datetime objects
 
     If the given object is a dataclass asdict() will be called.
-    On datetime objects, .isoformat() is used.
+    On datetime objects, datetime_to_ISO8601_str is used.
 
     """
 
@@ -100,5 +110,8 @@ class UserEncoder(json.JSONEncoder):
             return asdict(o)
 
         if isinstance(o, datetime):
-            return o.isoformat()
+            return datetime_to_ISO8601_str(o)
+
+        if isinstance(o, Path):
+            return str(o)
         return json.JSONEncoder.default(self, o)
