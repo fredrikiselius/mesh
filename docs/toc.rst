@@ -10,3 +10,4 @@
     modules/plex
     modules/scrobble
     modules/synchronize
+    modules/user

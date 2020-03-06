@@ -92,9 +92,13 @@ class UserEncoder(json.JSONEncoder):
     On datetime objects, .isoformat() is used.
 
     """
+
     def default(self, o):
+        """Returns serialized version of datetime and dataclass"""
+
         if is_dataclass(o):
             return asdict(o)
 
         if isinstance(o, datetime):
             return o.isoformat()
+        return json.JSONEncoder.default(self, o)
