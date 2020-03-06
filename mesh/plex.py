@@ -48,7 +48,7 @@ AUTH_URL = f'https://app.plex.tv/auth#?' \
               'context[device][environment]=bundled&' \
               'context[device][layout]=desktop&' \
               'context[device][platform]={platform}&' \
-              'context[device][device]={product} ({platform})&' \
+              'context[device][device]=Web&' \
               'clientID={client_id}&' \
               'code={code}'
 
@@ -58,7 +58,7 @@ PIN_URL = 'https://plex.tv/api/v2/pins'
 AUTH_HEADERS = ('X-Plex-Product', 'X-Plex-Platform', 'X-Plex-Device', 'X-Plex-Client-Identifier')
 
 
-def build_auth_headers(product, platform, client_identifier):
+def build_auth_headers():
     """Returns a dict with auth headers
 
     :param product: The name of the product
@@ -66,18 +66,13 @@ def build_auth_headers(product, platform, client_identifier):
     :param client_identifier: Unique identifier
     """
 
-    from plexapi import reset_base_headers
-    import plexapi
+    from plexapi import BASE_HEADERS
 
-    plexapi.X_PLEX_PRODUCT = 'Mesh'
-
-    all = reset_base_headers()
-    headers = {h: all[h] for h in AUTH_HEADERS}
-    print(headers)
+    headers = {h: BASE_HEADERS[h] for h in AUTH_HEADERS}
     return headers
 
 
-def oauth(product_name, client_identifier, platform='Web'):
+def oauth():
     """ Retrive plex token from user with authenticate
 
     https://github.com/tidusjar/Ombi/issues/2894#issuecomment-477404691
@@ -85,8 +80,13 @@ def oauth(product_name, client_identifier, platform='Web'):
     :return: Plex token for the authenticated user
     :rtype: Str or None
     """
-    headers = build_auth_headers(product_name, platform, client_identifier)
+
+    headers = build_auth_headers()
     with requests.session() as session:
+        # headers['X-Plex-Client-Identifier'] = 'kjh123192783y123hj'
+        # headers['X-Plex-Product'] = 'Mesh'
+        # headers['X-Plex-Device'] = 'Mesh (Web)'
+        # headers['X-Plex-Platform'] = 'Web'
         response = session.post('https://plex.tv/api/v2/pins.json',
                                 headers=headers,
                                 params={'strong': True})
@@ -96,9 +96,12 @@ def oauth(product_name, client_identifier, platform='Web'):
             return None
 
         data = response.json()
-
-        url = AUTH_URL.format(product=product_name, platform=platform,
-                              client_id=client_identifier, code=data['code'])
+        url = AUTH_URL.format(
+            product=headers['X-Plex-Product'],
+            platform=headers['X-Plex-Platform'],
+            client_id=headers['X-Plex-Client-Identifier'],
+            code=data['code']
+        )
 
         yield url
         response = session.get(PIN_URL + '/' + str(data["id"]) + '.json', headers=headers)
@@ -117,11 +120,3 @@ def oauth(product_name, client_identifier, platform='Web'):
             yield None
 
         yield response.json()['user']['username'], token
-
-
-if __name__ == '__main__':
-    import uuid
-    auth = oauth('mest', str(uuid.getnode()))
-    print(next(auth))
-    input('Press ENTER')
-    print(next(auth))

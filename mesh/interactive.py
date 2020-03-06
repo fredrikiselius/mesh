@@ -1,7 +1,5 @@
 """This module contains various CLI interaction methods"""
 
-from plexapi import X_PLEX_IDENTIFIER, X_PLEX_PLATFORM
-
 from mesh.plex import owned_servers, oauth
 
 
@@ -51,7 +49,7 @@ def first_run_setup():
 
 
 def plex_oauth():
-    auth = oauth('Mesh', X_PLEX_IDENTIFIER, X_PLEX_PLATFORM)
+    auth = oauth()
     print('Browse to the following url and login:')
     print(next(auth))
     input('Press ENTER to continue')
@@ -62,6 +60,14 @@ def plex_oauth():
         return None
     print(f'User {user_token_pair[0]} has successfully authenticated')
     return user_token_pair
+
+
+def add_user():
+    print('Adding a new user')
+    print('First you need to give Mesh permission to use your plex account')
+    plex_credentials = plex_oauth()
+
+    print('Next, you need to give Mesh permission to access your Trakt account')
 
 
 if __name__ == '__main__':
