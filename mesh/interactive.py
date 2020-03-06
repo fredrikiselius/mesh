@@ -1,6 +1,11 @@
 """This module contains various CLI interaction methods"""
 
+from collections import namedtuple
+
+from trakt import Trakt
+
 from mesh.plex import owned_servers, oauth
+from mesh.user import User
 
 
 def first_run_setup():
@@ -62,13 +67,29 @@ def plex_oauth():
     return user_token_pair
 
 
+def trakt_oauth():
+    print(f'Copy the authorization pin from: {Trakt["oauth"].authorize_url("urn:ietf:wg:oauth:2.0:oob")}')
+    pin = input('Enter pin: ')
+    authorization = Trakt['oauth'].token_exchange(pin,
+                                                  'urn:ietf:wg:oauth:2.0:oob')
+    if authorization is None:
+        print('Trakt authorization failed')
+        return
+    print('Trakt authorization successful')
+    return authorization
+
+
 def add_user():
     print('Adding a new user')
     print('First you need to give Mesh permission to use your plex account')
     plex_credentials = plex_oauth()
+    print('')
 
     print('Next, you need to give Mesh permission to access your Trakt account')
-
+    auth = trakt_oauth()
+    if plex_credentials and auth:
+        return User(*plex_credentials, auth)
+    return None
 
 if __name__ == '__main__':
     plex_oauth()

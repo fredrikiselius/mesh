@@ -1,5 +1,5 @@
 from configparser import ConfigParser
-import os
+from pathlib import Path
 
 import pytest
 
@@ -26,7 +26,7 @@ def base_configparser():
 
 @pytest.fixture
 def valid_config_file(tmp_path, base_configparser):
-    path = os.path.join(tmp_path, 'config')
+    path = Path(tmp_path).joinpath('config')
     with open(path, 'w') as f:
         base_configparser.write(f)
     return path
@@ -36,7 +36,7 @@ def valid_config_file(tmp_path, base_configparser):
 def invalid_key_config_file(tmp_path, base_configparser):
     base_configparser.add_section('__dict__')
     base_configparser.set('__dict__', 'asd', 'test')
-    path = os.path.join(tmp_path, 'config')
+    path = Path(tmp_path).joinpath('config')
     with open(path, 'w') as f:
         base_configparser.write(f)
     return path
@@ -45,7 +45,7 @@ def invalid_key_config_file(tmp_path, base_configparser):
 @pytest.fixture()
 def missing_key_file(tmp_path, base_configparser):
     base_configparser.remove_option('plex', 'identifier')
-    path = os.path.join(tmp_path, 'config')
+    path = Path(tmp_path).joinpath('config')
     with open(path, 'w') as f:
         base_configparser.write(f)
     return path
@@ -53,17 +53,17 @@ def missing_key_file(tmp_path, base_configparser):
 
 @pytest.fixture
 def invalid_file(tmp_path):
-    path = os.path.join(tmp_path, 'config')
+    path = Path(tmp_path).joinpath('config')
     with open(path, 'w') as f:
         f.write('testing invalid file')
     return path
 
 
 def test_configuration_from_non_existing_file(tmp_path):
-    config_file = os.path.join(tmp_path, 'config')
+    config_file = Path(tmp_path).joinpath('config')
     config = Configuration(config_file)
 
-    assert os.path.isfile(config_file)
+    assert config_file.is_file()
     assert config.is_new
 
 

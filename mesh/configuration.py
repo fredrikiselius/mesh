@@ -4,13 +4,10 @@ import logging
 import os
 import uuid
 
-
+from mesh.constants import CONFIG_FILE
 from mesh.exceptions import InvalidConfiguration
 
 logger = logging.getLogger(__name__)
-
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_PATH = os.path.join(ROOT_PATH, 'config')
 
 
 class Configuration:
@@ -32,7 +29,7 @@ class Configuration:
                  :data:`mesh.configuration.config` should be used instead.
 
     :param path: Full path to the config file
-    :type path: :class:`~python:str`
+    :type path: :class:`~python:pathlib:Path`
     """
 
     def __init__(self, path):
@@ -150,7 +147,7 @@ def get_config(path=None):
     global _config
 
     if path is None:
-        path = CONFIG_PATH
+        path = CONFIG_FILE
 
     if _config is None:
         _config = Configuration(path)

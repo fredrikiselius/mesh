@@ -1,13 +1,17 @@
 """This is the entry point into the Mesh application"""
 
 import argparse
+import json
 import logging
 import os
 import sys
 
+from trakt import Trakt
 
 from mesh.configuration import get_config
+from mesh.constants import USER_MAPPING_FILE, DATA_DIR
 from mesh.interactive import first_run_setup, add_user
+from mesh.user import UserManager
 from mesh.version import __version__
 
 
@@ -46,6 +50,25 @@ def init_plex():
     plexapi.BASE_HEADERS['X-Plex-Client-Identifier'] = config.mesh.identifier
 
 
+def init_trakt():
+    """Set id and secrect for trakt"""
+
+    config = get_config()
+    if not config.trakt.id or not config.trakt.secret:
+        return False
+
+    Trakt.configuration.defaults.client(
+        id=config.trakt.id,
+        secret=config.trakt.secret
+    )
+    return True
+
+
+def quit(code=0):
+    print(f'Exiting ({code})')
+    sys.exit(code)
+
+
 def main():
     """Run the application"""
 
@@ -55,26 +78,25 @@ def main():
 
     config = get_config()
     if config.is_new:
-        print('A new config file has been generated. Fill in the missing '
-              'fields and rerun the application')
-        # sys.exit()
         identifier, token = first_run_setup()
         config.set('plex', 'identifier',  identifier)
         config.set('plex', 'token',  token)
         config.save()
 
+    has_trakt_oauth = init_trakt()
+    if not has_trakt_oauth:
+        print('You must enter a valid client id and client secret for Trakt')
+        print('If you do not have those, go to "https://trakt.tv/oauth/applications" and create a new application')
+        quit()
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    user_manager = UserManager(USER_MAPPING_FILE)
+
     if args.add_user:
-        add_user()
-    elif args.pull:
-        print('pull')
-    elif args.push:
-        print('push')
-    elif args.sync:
-        print('sync')
-    else:
-        print('service')
-
-
+        new_user = add_user()
+        if new_user is not None:
+            user_manager.add(new_user)
+            user_manager.save()
 
 
 if __name__ == '__main__':
